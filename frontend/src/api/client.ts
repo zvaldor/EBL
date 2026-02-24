@@ -9,7 +9,9 @@ const getInitData = (): string => {
 };
 
 const api = axios.create({
-  baseURL: "/api",
+  // VITE_API_URL is set in Netlify env vars to point to Railway backend.
+  // Falls back to /api for Railway-served deployments.
+  baseURL: (import.meta.env.VITE_API_URL as string | undefined) ?? "/api",
 });
 
 api.interceptors.request.use((config) => {
