@@ -17,7 +17,7 @@ async def cmd_start(message: Message):
         await get_or_create_user(db, message.from_user)
     await message.answer(
         f"👋 Привет, <b>{message.from_user.full_name}</b>!\n\n"
-        "🏊 <b>ЕБЛ — Единая Банная Лига</b>\n\n"
+        "🏊 <b>ЕБЛ — Евразийская Банная Лига</b>\n\n"
         "📸 Отмечай визиты в баню через <code>@ebanakomissiya_bot</code> в чате.\n"
         "📊 /top — лидерборд\n"
         "🙋 /me — мои очки"
