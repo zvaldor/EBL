@@ -59,9 +59,20 @@ def region_keyboard(regions: list, visit_id: int, country_id: int) -> InlineKeyb
     return builder.as_markup()
 
 
-def participants_keyboard(visit_id: int) -> InlineKeyboardMarkup:
+def participants_keyboard(
+    visit_id: int,
+    participants: list[tuple[int, str]] = (),
+) -> InlineKeyboardMarkup:
+    """participants: list of (user_id, display_name)"""
     builder = InlineKeyboardBuilder()
+    for user_id, name in participants:
+        builder.button(
+            text=f"❌ {name}",
+            callback_data=f"participant:remove:{visit_id}:{user_id}",
+        )
+    builder.button(text="➕ Добавить участника", callback_data=f"participant:add:{visit_id}")
     builder.button(text="◀ Назад к визиту", callback_data=f"visit:back:{visit_id}")
+    builder.adjust(1)
     return builder.as_markup()
 
 
