@@ -5,7 +5,8 @@
       "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/user.py:*)",
       "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/bath.py:*)",
       "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/visit.py:*)",
-      "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/config.py:*)"
+      "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/config.py:*)",
+      "Bash(git push origin main)"
     ],
     "additionalDirectories": [
       "/Users/alex/.claude/projects/-Users-alex-Documents-GitHub-EBL"
