@@ -27,16 +27,19 @@ dp = create_dispatcher()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables (use alembic in production)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
-    # Seed default point config
-    async with AsyncSessionLocal() as db:
-        for key, (value, description) in DEFAULT_CONFIG.items():
-            q = await db.execute(select(PointConfig).where(PointConfig.key == key))
-            if not q.scalar_one_or_none():
-                db.add(PointConfig(key=key, value=value, description=description))
-        await db.commit()
+        # Seed default point config
+        async with AsyncSessionLocal() as db:
+            for key, (value, description) in DEFAULT_CONFIG.items():
+                q = await db.execute(select(PointConfig).where(PointConfig.key == key))
+                if not q.scalar_one_or_none():
+                    db.add(PointConfig(key=key, value=value, description=description))
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"DB init failed (will retry on first request): {e}")
 
     # Set webhook (skip if WEBHOOK_HOST not configured yet)
     if settings.WEBHOOK_HOST:
