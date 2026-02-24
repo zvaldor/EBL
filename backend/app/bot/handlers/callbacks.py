@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from app.db.session import AsyncSessionLocal
 from app.db.models import Visit, VisitParticipant, Bath, User, PointLog
 from app.services.visit import set_flag_long, update_visit_bath, set_visit_status
-from app.bot.keyboards.inline import visit_card_keyboard, bath_search_keyboard
+from app.bot.keyboards.inline import visit_card_keyboard, bath_search_keyboard, participants_keyboard
 
 router = Router()
 
@@ -65,10 +65,33 @@ async def cb_show_participants(callback: CallbackQuery):
         participants = parts_q.scalars().all()
     if participants:
         names = [u.full_name or f"@{u.username}" or str(u.id) for u in participants]
-        text = "👥 Участники:\n" + "\n".join(f"• {n}" for n in names)
+        text = (
+            f"👥 <b>Участники визита #{visit_id}:</b>\n"
+            + "\n".join(f"• {n}" for n in names)
+        )
     else:
-        text = "👥 Участников пока нет"
-    await callback.answer(text, show_alert=True)
+        text = f"👥 В визите #{visit_id} пока нет участников"
+    await callback.message.edit_text(
+        text, parse_mode="HTML", reply_markup=participants_keyboard(visit_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("visit:back:"))
+async def cb_back_to_visit(callback: CallbackQuery):
+    visit_id = int(callback.data.split(":")[2])
+    async with AsyncSessionLocal() as db:
+        q = await db.execute(select(Visit).where(Visit.id == visit_id))
+        visit = q.scalar_one_or_none()
+        if not visit:
+            await callback.answer("Визит не найден")
+            return
+        card_text = await build_card_text(visit, db)
+        keyboard = visit_card_keyboard(
+            visit_id=visit.id, flag_long=visit.flag_long, bath_id=visit.bath_id
+        )
+    await callback.message.edit_text(card_text, parse_mode="HTML", reply_markup=keyboard)
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("visit:long:"))
@@ -85,7 +108,7 @@ async def cb_toggle_long(callback: CallbackQuery):
         keyboard = visit_card_keyboard(
             visit_id=visit.id, flag_long=visit.flag_long, bath_id=visit.bath_id
         )
-    await callback.message.edit_text(card_text, reply_markup=keyboard)
+    await callback.message.edit_text(card_text, parse_mode="HTML", reply_markup=keyboard)
     await callback.answer("✅ Флаг обновлён")
 
 
@@ -100,7 +123,7 @@ async def cb_bath_select(callback: CallbackQuery):
         keyboard = visit_card_keyboard(
             visit_id=visit.id, flag_long=visit.flag_long, bath_id=visit.bath_id
         )
-    await callback.message.edit_text(card_text, reply_markup=keyboard)
+    await callback.message.edit_text(card_text, parse_mode="HTML", reply_markup=keyboard)
     await callback.answer("🏠 Баня обновлена")
 
 
@@ -110,7 +133,7 @@ async def cb_confirm_visit(callback: CallbackQuery):
     async with AsyncSessionLocal() as db:
         visit = await set_visit_status(db, visit_id, "confirmed")
         card_text = await build_card_text(visit, db)
-    await callback.message.edit_text(card_text)
+    await callback.message.edit_text(card_text, parse_mode="HTML")
     await callback.answer("✅ Визит подтверждён")
 
 
@@ -120,5 +143,5 @@ async def cb_cancel_visit(callback: CallbackQuery):
     async with AsyncSessionLocal() as db:
         visit = await set_visit_status(db, visit_id, "cancelled")
         card_text = await build_card_text(visit, db)
-    await callback.message.edit_text(card_text)
+    await callback.message.edit_text(card_text, parse_mode="HTML")
     await callback.answer("❌ Визит отменён")

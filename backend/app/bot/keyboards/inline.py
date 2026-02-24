@@ -59,6 +59,12 @@ def region_keyboard(regions: list, visit_id: int, country_id: int) -> InlineKeyb
     return builder.as_markup()
 
 
+def participants_keyboard(visit_id: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="◀ Назад к визиту", callback_data=f"visit:back:{visit_id}")
+    return builder.as_markup()
+
+
 def confirm_keyboard(visit_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Подтвердить", callback_data=f"visit:confirm:{visit_id}")
