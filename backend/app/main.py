@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
@@ -109,12 +108,15 @@ frontend_dist = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"),
 )
 if os.path.exists(frontend_dist):
-    app.mount("/app/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+    @app.get("/app")
+    async def serve_spa_root():
+        return FileResponse(os.path.join(frontend_dist, "index.html"))
 
     @app.get("/app/{full_path:path}")
     async def serve_spa(full_path: str):
-        return FileResponse(os.path.join(frontend_dist, "index.html"))
-
-    @app.get("/app")
-    async def serve_spa_root():
+        # Serve real files (assets, favicon, etc.) with correct MIME type
+        file_path = os.path.join(frontend_dist, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        # SPA fallback — let React Router handle the path
         return FileResponse(os.path.join(frontend_dist, "index.html"))
