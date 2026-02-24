@@ -38,14 +38,20 @@ async def lifespan(app: FastAPI):
                 db.add(PointConfig(key=key, value=value, description=description))
         await db.commit()
 
-    # Set webhook
-    webhook_url = f"{settings.WEBHOOK_HOST}/webhook/{settings.WEBHOOK_SECRET}"
-    await bot.set_webhook(
-        url=webhook_url,
-        allowed_updates=dp.resolve_used_update_types(),
-        drop_pending_updates=True,
-    )
-    logger.info(f"Webhook set to {webhook_url}")
+    # Set webhook (skip if WEBHOOK_HOST not configured yet)
+    if settings.WEBHOOK_HOST:
+        webhook_url = f"{settings.WEBHOOK_HOST}/webhook/{settings.WEBHOOK_SECRET}"
+        try:
+            await bot.set_webhook(
+                url=webhook_url,
+                allowed_updates=dp.resolve_used_update_types(),
+                drop_pending_updates=True,
+            )
+            logger.info(f"Webhook set to {webhook_url}")
+        except Exception as e:
+            logger.warning(f"Failed to set webhook: {e}")
+    else:
+        logger.warning("WEBHOOK_HOST not set — webhook not configured")
 
     yield
 
