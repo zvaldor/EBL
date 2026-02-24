@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/__init__.py:*)",
+      "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/user.py:*)",
+      "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/bath.py:*)",
+      "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/visit.py:*)",
+      "Bash(/Users/alex/Documents/GitHub/EBL/backend/app/db/models/config.py:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/alex/.claude/projects/-Users-alex-Documents-GitHub-EBL"
+    ]
+  }
+}
