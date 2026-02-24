@@ -53,6 +53,24 @@ async def build_card_text(visit: Visit, db) -> str:
     return "\n".join(lines)
 
 
+@router.callback_query(F.data.startswith("visit:participants:"))
+async def cb_show_participants(callback: CallbackQuery):
+    visit_id = int(callback.data.split(":")[2])
+    async with AsyncSessionLocal() as db:
+        parts_q = await db.execute(
+            select(User)
+            .join(VisitParticipant, VisitParticipant.user_id == User.id)
+            .where(VisitParticipant.visit_id == visit_id)
+        )
+        participants = parts_q.scalars().all()
+    if participants:
+        names = [u.full_name or f"@{u.username}" or str(u.id) for u in participants]
+        text = "👥 Участники:\n" + "\n".join(f"• {n}" for n in names)
+    else:
+        text = "👥 Участников пока нет"
+    await callback.answer(text, show_alert=True)
+
+
 @router.callback_query(F.data.startswith("visit:long:"))
 async def cb_toggle_long(callback: CallbackQuery):
     visit_id = int(callback.data.split(":")[2])
