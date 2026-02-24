@@ -14,11 +14,28 @@ export function useAuth() {
       window.Telegram.WebApp.expand();
     }
 
+    // Must be opened inside Telegram (or have dev token in localStorage)
+    const initData =
+      window.Telegram?.WebApp?.initData ||
+      localStorage.getItem("dev_init_data");
+    if (!initData) {
+      setError("Открой приложение через Telegram");
+      setLoading(false);
+      return;
+    }
+
     api
       .get<User>("/users/me")
       .then((res) => setUser(res.data))
       .catch((err) => {
-        setError(err.response?.data?.detail || "Auth error");
+        const detail = err.response?.data?.detail;
+        const msg =
+          typeof detail === "string"
+            ? detail
+            : Array.isArray(detail)
+            ? detail.map((d: { msg: string }) => d.msg).join("; ")
+            : "Auth error";
+        setError(msg);
       })
       .finally(() => setLoading(false));
   }, []);
