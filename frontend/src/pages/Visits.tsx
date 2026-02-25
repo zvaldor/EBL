@@ -1,19 +1,27 @@
 import { useState, useEffect } from "react";
 import api from "../api/client";
-import type { Visit } from "../types";
+import type { Visit, User } from "../types";
 import VisitCard from "../components/VisitCard";
 
-const STATUSES = [
+interface Props {
+  user: User;
+}
+
+const ALL_STATUSES = [
   { value: "", label: "Все" },
-  { value: "draft", label: "Черновики" },
   { value: "confirmed", label: "Подтверждённые" },
   { value: "disputed", label: "Спорные" },
+  { value: "cancelled", label: "Отменённые" },
 ];
 
-export default function Visits() {
+export default function Visits({ user }: Props) {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const statuses = user.is_admin
+    ? ALL_STATUSES
+    : ALL_STATUSES.filter((s) => s.value !== "cancelled");
 
   useEffect(() => {
     setLoading(true);
@@ -29,7 +37,7 @@ export default function Visits() {
       <div className="page-header">🏊 Визиты</div>
 
       <div className="tabs" style={{ marginBottom: 12 }}>
-        {STATUSES.map((s) => (
+        {statuses.map((s) => (
           <button
             key={s.value}
             className={`tab ${status === s.value ? "active" : ""}`}

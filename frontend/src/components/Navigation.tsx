@@ -1,10 +1,6 @@
 import { NavLink } from "react-router-dom";
 
-interface Props {
-  isAdmin: boolean;
-}
-
-export default function Navigation({ isAdmin }: Props) {
+export default function Navigation() {
   return (
     <nav className="nav">
       <NavLink to="/leaderboard" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
@@ -15,16 +11,10 @@ export default function Navigation({ isAdmin }: Props) {
         <span className="nav-icon">🏊</span>
         Визиты
       </NavLink>
-      <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-        <span className="nav-icon">🙋</span>
-        Профиль
+      <NavLink to="/baths" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
+        <span className="nav-icon">🏠</span>
+        Бани
       </NavLink>
-      {isAdmin && (
-        <NavLink to="/admin/visits" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-          <span className="nav-icon">⚙️</span>
-          Админ
-        </NavLink>
-      )}
     </nav>
   );
 }

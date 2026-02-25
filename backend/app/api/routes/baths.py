@@ -99,7 +99,7 @@ class BathCreate(BaseModel):
 async def create_bath_route(
     data: BathCreate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    current_user: User = Depends(get_current_user),
 ):
     bath = await create_bath(db, **data.model_dump())
     return bath_to_dict(bath)
@@ -123,7 +123,7 @@ async def update_bath(
     bath_id: int,
     data: BathUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    current_user: User = Depends(get_current_user),
 ):
     q = await db.execute(select(Bath).where(Bath.id == bath_id))
     bath = q.scalar_one_or_none()
@@ -134,6 +134,21 @@ async def update_bath(
     await db.commit()
     await db.refresh(bath)
     return bath_to_dict(bath)
+
+
+@router.delete("/{bath_id}")
+async def delete_bath(
+    bath_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    q = await db.execute(select(Bath).where(Bath.id == bath_id))
+    bath = q.scalar_one_or_none()
+    if not bath:
+        raise HTTPException(404, "Bath not found")
+    await db.delete(bath)
+    await db.commit()
+    return {"ok": True}
 
 
 class MergeRequest(BaseModel):

@@ -2,9 +2,10 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import Navigation from "./components/Navigation";
 import Leaderboard from "./pages/Leaderboard";
-import Profile from "./pages/Profile";
 import Visits from "./pages/Visits";
 import VisitDetail from "./pages/VisitDetail";
+import Baths from "./pages/Baths";
+import UserProfile from "./pages/UserProfile";
 import AdminVisits from "./pages/admin/AdminVisits";
 import AdminBaths from "./pages/admin/AdminBaths";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -26,9 +27,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/leaderboard" replace />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
-        <Route path="/profile" element={<Profile user={user!} />} />
-        <Route path="/visits" element={<Visits />} />
-        <Route path="/visits/:id" element={<VisitDetail />} />
+        <Route path="/users/:id" element={<UserProfile />} />
+        <Route path="/visits" element={<Visits user={user!} />} />
+        <Route path="/visits/:id" element={<VisitDetail user={user!} />} />
+        <Route path="/baths" element={<Baths user={user!} />} />
 
         {user?.is_admin && (
           <>
@@ -41,7 +43,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/leaderboard" replace />} />
       </Routes>
-      <Navigation isAdmin={user?.is_admin ?? false} />
+      <Navigation />
     </>
   );
 }

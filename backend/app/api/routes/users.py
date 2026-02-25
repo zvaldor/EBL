@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,13 +11,9 @@ from app.api.deps import get_current_user, get_admin_user
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me")
-async def get_me(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+async def user_stats(user: User, db: AsyncSession) -> dict:
     pts_q = await db.execute(
-        select(func.sum(PointLog.points)).where(PointLog.user_id == current_user.id)
+        select(func.sum(PointLog.points)).where(PointLog.user_id == user.id)
     )
     points = pts_q.scalar() or 0.0
 
@@ -25,20 +21,60 @@ async def get_me(
         select(func.count(VisitParticipant.visit_id))
         .join(Visit, Visit.id == VisitParticipant.visit_id)
         .where(
-            VisitParticipant.user_id == current_user.id,
-            Visit.status.in_(["confirmed", "draft", "pending"]),
+            VisitParticipant.user_id == user.id,
+            Visit.status.in_(["confirmed", "pending"]),
         )
     )
     visit_count = visits_q.scalar() or 0
 
     return {
-        "id": current_user.id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
-        "is_admin": current_user.is_admin,
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "is_admin": user.is_admin,
         "points": float(points),
         "visit_count": visit_count,
     }
+
+
+@router.get("/me")
+async def get_me(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await user_stats(current_user, db)
+
+
+@router.get("/search")
+async def search_users(
+    q: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(User)
+        .where(
+            User.is_active == True,
+            (User.full_name.ilike(f"%{q}%")) | (User.username.ilike(f"%{q}%"))
+        )
+        .order_by(User.full_name)
+        .limit(10)
+    )
+    users = result.scalars().all()
+    return [{"id": u.id, "full_name": u.full_name, "username": u.username} for u in users]
+
+
+@router.get("/{user_id}")
+async def get_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = await db.execute(select(User).where(User.id == user_id))
+    user = q.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "User not found")
+    return await user_stats(user, db)
 
 
 @router.get("")

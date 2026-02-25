@@ -36,6 +36,7 @@ async def visit_to_dict(visit: Visit, db: AsyncSession) -> dict:
         "status": visit.status,
         "visited_at": visit.visited_at.isoformat(),
         "created_at": visit.created_at.isoformat(),
+        "created_by": visit.created_by,
         "flag_long": visit.flag_long,
         "flag_ultraunique": visit.flag_ultraunique,
         "bath": {
@@ -73,6 +74,9 @@ async def list_visits(
     filters = []
     if status:
         filters.append(Visit.status == status)
+    elif not current_user.is_admin:
+        # Non-admins don't see cancelled visits by default
+        filters.append(Visit.status != "cancelled")
     if bath_id:
         filters.append(Visit.bath_id == bath_id)
     if user_id:
@@ -130,12 +134,21 @@ async def update_visit(
     visit_id: int,
     data: VisitUpdate,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(get_admin_user),
+    current_user: User = Depends(get_current_user),
 ):
     q = await db.execute(select(Visit).where(Visit.id == visit_id))
     visit = q.scalar_one_or_none()
     if not visit:
         raise HTTPException(404, "Visit not found")
+
+    is_admin = current_user.is_admin
+    is_creator = visit.created_by == current_user.id
+
+    if not is_admin and not is_creator:
+        raise HTTPException(403, "Forbidden")
+
+    if data.status is not None and not is_admin:
+        raise HTTPException(403, "Only admins can change status")
 
     if data.status:
         visit = await set_visit_status(db, visit_id, data.status)

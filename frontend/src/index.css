@@ -24,7 +24,7 @@ body {
 #root {
   max-width: 480px;
   margin: 0 auto;
-  padding-bottom: 70px;
+  padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Navigation */
@@ -36,6 +36,7 @@ body {
   display: flex;
   background: var(--tg-theme-bg-color);
   border-top: 1px solid var(--tg-theme-secondary-bg-color);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 100;
 }
 
@@ -277,3 +278,17 @@ body {
 .badge-green { background: #e8f5e9; color: #2e7d32; }
 .badge-red { background: #ffebee; color: #c62828; }
 .badge-orange { background: #fff3e0; color: #e65100; }
+
+/* Avatar */
+.lb-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}

@@ -46,7 +46,7 @@ async def create_visit(
         created_by=created_by,
         message_id=message_id,
         chat_id=chat_id,
-        status="draft",
+        status="confirmed",
         visited_at=visited_at or now,
         flag_long=flag_long,
     )

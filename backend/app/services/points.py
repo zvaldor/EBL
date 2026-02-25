@@ -23,7 +23,7 @@ async def recalculate_visit(visit_id: int, db: AsyncSession) -> None:
     """Idempotent: delete old logs for this visit, then recalculate."""
     visit_q = await db.execute(select(Visit).where(Visit.id == visit_id))
     visit = visit_q.scalar_one_or_none()
-    if not visit or visit.status == "cancelled":
+    if not visit or visit.status in ("cancelled", "disputed"):
         await db.execute(delete(PointLog).where(PointLog.visit_id == visit_id))
         await db.commit()
         return

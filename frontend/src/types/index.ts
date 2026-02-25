@@ -50,6 +50,7 @@ export interface Visit {
   status: string;
   visited_at: string;
   created_at: string;
+  created_by: number;
   flag_long: boolean;
   flag_ultraunique: boolean;
   bath: Pick<Bath, "id" | "name" | "city" | "country_id" | "region_id"> | null;
