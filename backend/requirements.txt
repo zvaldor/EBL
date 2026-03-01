@@ -7,3 +7,5 @@ alembic==1.14.0
 pydantic-settings==2.6.1
 rapidfuzz==3.10.1
 python-multipart==0.0.12
+gspread==6.1.4
+google-auth==2.37.0

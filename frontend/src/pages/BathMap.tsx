@@ -2,29 +2,17 @@ import { useState, useEffect } from "react";
 import api from "../api/client";
 
 interface Visitor {
-  user_id: number;
-  full_name: string;
-  username: string | null;
+  name: string;
   visit_count: number;
 }
 
 interface BathMapEntry {
-  bath_id: number;
   bath_name: string;
-  city: string | null;
-  lat: number | null;
-  lng: number | null;
+  city: string;
+  country: string;
   total_visits: number;
   visitors: Visitor[];
 }
-
-type MapPeriod = "week" | "year" | "all";
-
-const PERIODS: { value: MapPeriod; label: string }[] = [
-  { value: "week", label: "Неделя" },
-  { value: "year", label: "Год" },
-  { value: "all", label: "Всё время" },
-];
 
 const AVATAR_COLORS = [
   "#e53935", "#8e24aa", "#1e88e5", "#00897b",
@@ -45,74 +33,96 @@ function initials(name: string): string {
 }
 
 export default function BathMap() {
-  const [period, setPeriod] = useState<MapPeriod>("year");
   const [entries, setEntries] = useState<BathMapEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setLoading(true);
     api
-      .get<BathMapEntry[]>(`/baths/map?period=${period}`)
+      .get<BathMapEntry[]>("/baths/map")
       .then((r) => setEntries(r.data))
+      .catch((e) => setError(e?.response?.data?.detail ?? "Ошибка загрузки"))
       .finally(() => setLoading(false));
-  }, [period]);
+  }, []);
+
+  const filtered = search.trim()
+    ? entries.filter(
+        (e) =>
+          e.bath_name.toLowerCase().includes(search.toLowerCase()) ||
+          e.city.toLowerCase().includes(search.toLowerCase()) ||
+          e.visitors.some((v) =>
+            v.name.toLowerCase().includes(search.toLowerCase())
+          )
+      )
+    : entries;
 
   return (
     <div>
       <div className="page-header">🗺️ Карта бань</div>
 
-      <div className="tabs" style={{ marginBottom: 12 }}>
-        {PERIODS.map((p) => (
-          <button
-            key={p.value}
-            className={`tab ${period === p.value ? "active" : ""}`}
-            onClick={() => setPeriod(p.value)}
-          >
-            {p.label}
-          </button>
-        ))}
+      <div className="form-group" style={{ marginBottom: 8 }}>
+        <input
+          className="form-control"
+          placeholder="Поиск по бане, городу, участнику..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {loading ? (
         <div className="loading">⏳ Загрузка...</div>
-      ) : entries.length === 0 ? (
-        <div className="loading">Нет данных</div>
+      ) : error ? (
+        <div className="error">❌ {error}</div>
+      ) : filtered.length === 0 ? (
+        <div className="loading">Ничего не найдено</div>
       ) : (
-        entries.map((entry) => {
-          const isOpen = expanded === entry.bath_id;
+        filtered.map((entry) => {
+          const key = entry.bath_name + entry.city;
+          const isOpen = expanded === key;
           return (
             <div
-              key={entry.bath_id}
+              key={key}
               className="card"
               style={{ cursor: "pointer" }}
-              onClick={() => setExpanded(isOpen ? null : entry.bath_id)}
+              onClick={() => setExpanded(isOpen ? null : key)}
             >
-              {/* Bath header row */}
+              {/* Bath header */}
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 24 }}>🏠</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 15 }}>{entry.bath_name}</div>
-                  {entry.city && (
-                    <div style={{ fontSize: 12, color: "var(--tg-theme-hint-color)" }}>
-                      {entry.city}
-                    </div>
-                  )}
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>
+                    {entry.bath_name}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--tg-theme-hint-color)" }}>
+                    {[entry.city, entry.country].filter(Boolean).join(", ")}
+                  </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontWeight: 700, color: "var(--tg-theme-button-color)", fontSize: 16 }}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "var(--tg-theme-button-color)",
+                      fontSize: 18,
+                    }}
+                  >
                     {entry.total_visits}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--tg-theme-hint-color)" }}>визит(а)</div>
+                  <div style={{ fontSize: 11, color: "var(--tg-theme-hint-color)" }}>
+                    визитов
+                  </div>
                 </div>
               </div>
 
-              {/* Visitor avatars (always visible, compact) */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+              {/* Visitor chips */}
+              <div
+                style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}
+              >
                 {entry.visitors.map((v) => (
                   <div
-                    key={v.user_id}
-                    title={`${v.full_name}: ${v.visit_count} визит(а)`}
+                    key={v.name}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -128,7 +138,7 @@ export default function BathMap() {
                         width: 24,
                         height: 24,
                         borderRadius: "50%",
-                        background: avatarColor(v.full_name),
+                        background: avatarColor(v.name),
                         color: "#fff",
                         display: "flex",
                         alignItems: "center",
@@ -138,11 +148,9 @@ export default function BathMap() {
                         flexShrink: 0,
                       }}
                     >
-                      {initials(v.full_name)}
+                      {initials(v.name)}
                     </div>
-                    <span style={{ color: "var(--tg-theme-text-color)" }}>
-                      {v.full_name.split(" ")[0]}
-                    </span>
+                    <span>{v.name}</span>
                     {v.visit_count > 1 && (
                       <span
                         style={{
@@ -161,12 +169,18 @@ export default function BathMap() {
                 ))}
               </div>
 
-              {/* Expanded detail: full names + counts */}
+              {/* Expanded: full list sorted by visit count */}
               {isOpen && (
-                <div style={{ marginTop: 10, borderTop: "1px solid var(--tg-theme-secondary-bg-color)", paddingTop: 10 }}>
+                <div
+                  style={{
+                    marginTop: 10,
+                    borderTop: "1px solid var(--tg-theme-secondary-bg-color)",
+                    paddingTop: 10,
+                  }}
+                >
                   {entry.visitors.map((v) => (
                     <div
-                      key={v.user_id}
+                      key={v.name}
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
@@ -174,9 +188,14 @@ export default function BathMap() {
                         fontSize: 13,
                       }}
                     >
-                      <span>{v.full_name}{v.username ? ` @${v.username}` : ""}</span>
+                      <span>{v.name}</span>
                       <span style={{ color: "var(--tg-theme-hint-color)" }}>
-                        {v.visit_count} визит{v.visit_count === 1 ? "" : v.visit_count < 5 ? "а" : "ов"}
+                        {v.visit_count}{" "}
+                        {v.visit_count === 1
+                          ? "визит"
+                          : v.visit_count < 5
+                          ? "визита"
+                          : "визитов"}
                       </span>
                     </div>
                   ))}
