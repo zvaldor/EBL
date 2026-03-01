@@ -61,7 +61,7 @@ export default function Leaderboard() {
             <div style={{ flex: 1 }}>
               <div className="lb-name">{row.name}</div>
               <div className="lb-meta">
-                🏊 {row.visit_count} визитов
+                🛁 {row.visit_count} визитов
               </div>
             </div>
             <div>

@@ -26,7 +26,7 @@ export default function PasswordLogin({ onLogin, error, loading }: Props) {
         gap: 16,
       }}
     >
-      <div style={{ fontSize: 48 }}>🏊</div>
+      <div style={{ fontSize: 48 }}>🛁</div>
       <div style={{ fontWeight: 700, fontSize: 20, textAlign: "center" }}>
         ЕБЛ — Евразийская Банная Лига
       </div>

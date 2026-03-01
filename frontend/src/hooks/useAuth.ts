@@ -36,22 +36,35 @@ export function useAuth() {
   };
 
   useEffect(() => {
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
+    const init = () => {
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      }
+
+      const hasTelegram = !!window.Telegram?.WebApp?.initData;
+      const hasDevData = !!localStorage.getItem("dev_init_data");
+      const hasWebPassword = !!localStorage.getItem("web_password");
+
+      if (!hasTelegram && !hasDevData && !hasWebPassword) {
+        setNeedsPassword(true);
+        setLoading(false);
+        return;
+      }
+
+      fetchUser();
+    };
+
+    // If opened inside Telegram, WebApp is injected synchronously —
+    // initData is available immediately. In a regular browser the
+    // telegram-web-app.js script is async, so we give it a short
+    // window to load before falling back to web-password auth.
+    if (window.Telegram?.WebApp?.initData) {
+      init();
+    } else {
+      const t = setTimeout(init, 200);
+      return () => clearTimeout(t);
     }
-
-    const hasTelegram = !!window.Telegram?.WebApp?.initData;
-    const hasDevData = !!localStorage.getItem("dev_init_data");
-    const hasWebPassword = !!localStorage.getItem("web_password");
-
-    if (!hasTelegram && !hasDevData && !hasWebPassword) {
-      setNeedsPassword(true);
-      setLoading(false);
-      return;
-    }
-
-    fetchUser();
   }, []);
 
   const loginWithPassword = (password: string) => {

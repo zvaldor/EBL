@@ -8,7 +8,7 @@ export default function Navigation() {
         Рейтинг
       </NavLink>
       <NavLink to="/visits" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-        <span className="nav-icon">🏊</span>
+        <span className="nav-icon">🛁</span>
         Визиты
       </NavLink>
       <NavLink to="/bath-map" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>

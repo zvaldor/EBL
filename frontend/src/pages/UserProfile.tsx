@@ -90,7 +90,7 @@ export default function UserProfile() {
 
       {/* Visits */}
       <div style={{ padding: "12px 16px 4px", fontWeight: 600, fontSize: 15 }}>
-        🏊 Визиты
+        🛁 Визиты
       </div>
       {visits.length === 0 ? (
         <div className="loading">Нет визитов</div>

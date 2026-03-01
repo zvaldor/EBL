@@ -63,7 +63,7 @@ export default function Visits() {
 
   return (
     <div>
-      <div className="page-header">🏊 Визиты</div>
+      <div className="page-header">🛁 Визиты</div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 12 }}>
         <button className="tab" onClick={() => setWeek((w) => Math.max(1, w - 1))}>

@@ -18,10 +18,29 @@ Actual sheet layout (confirmed from file):
 
 import asyncio
 import json
+import time
 import gspread
 from google.oauth2.service_account import Credentials
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+# ---------------------------------------------------------------------------
+# Simple in-memory TTL cache (single process, shared across all requests)
+# ---------------------------------------------------------------------------
+_cache: dict[str, tuple[float, object]] = {}
+CACHE_TTL = 300  # 5 minutes
+
+
+def _cache_get(key: str):
+    entry = _cache.get(key)
+    if entry and time.monotonic() - entry[0] < CACHE_TTL:
+        return entry[1]
+    _cache.pop(key, None)
+    return None
+
+
+def _cache_set(key: str, value: object) -> None:
+    _cache[key] = (time.monotonic(), value)
 
 
 def _make_client(credentials: str) -> gspread.Client:
@@ -237,16 +256,34 @@ def _sync_bath_map(credentials: str, spreadsheet_id: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Async public API
+# Async public API (with TTL cache)
 # ---------------------------------------------------------------------------
 
 async def get_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> dict:
-    return await asyncio.to_thread(_sync_weekly_stats, credentials, spreadsheet_id, week_num)
+    key = f"weekly:{spreadsheet_id}:{week_num}"
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached  # type: ignore[return-value]
+    result = await asyncio.to_thread(_sync_weekly_stats, credentials, spreadsheet_id, week_num)
+    _cache_set(key, result)
+    return result
 
 
 async def get_overall_stats(credentials: str, spreadsheet_id: str) -> list[dict]:
-    return await asyncio.to_thread(_sync_overall_stats, credentials, spreadsheet_id)
+    key = f"overall:{spreadsheet_id}"
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached  # type: ignore[return-value]
+    result = await asyncio.to_thread(_sync_overall_stats, credentials, spreadsheet_id)
+    _cache_set(key, result)
+    return result
 
 
 async def get_bath_map(credentials: str, spreadsheet_id: str) -> list[dict]:
-    return await asyncio.to_thread(_sync_bath_map, credentials, spreadsheet_id)
+    key = f"bathmap:{spreadsheet_id}"
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached  # type: ignore[return-value]
+    result = await asyncio.to_thread(_sync_bath_map, credentials, spreadsheet_id)
+    _cache_set(key, result)
+    return result
