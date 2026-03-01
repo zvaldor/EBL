@@ -10,8 +10,10 @@ from app.config import settings
 router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
 
-def _creds_file() -> str:
-    here = os.path.dirname(__file__)  # backend/app/api/routes/
+def _creds() -> str:
+    if settings.GOOGLE_CREDENTIALS_JSON:
+        return settings.GOOGLE_CREDENTIALS_JSON
+    here = os.path.dirname(__file__)
     return os.path.join(here, "..", "..", "..", "google_credentials.json")
 
 
@@ -22,7 +24,7 @@ async def get_leaderboard(
     """Overall standings from Google Sheets 'Общий зачет'."""
     try:
         rows = await sheets_svc.get_overall_stats(
-            _creds_file(), settings.GOOGLE_SPREADSHEET_ID
+            _creds(), settings.GOOGLE_SPREADSHEET_ID
         )
     except Exception as e:
         raise HTTPException(500, f"Sheets error: {e}")

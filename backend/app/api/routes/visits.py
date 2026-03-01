@@ -17,7 +17,9 @@ from app.config import settings
 router = APIRouter(prefix="/visits", tags=["visits"])
 
 
-def _creds_file() -> str:
+def _creds() -> str:
+    if settings.GOOGLE_CREDENTIALS_JSON:
+        return settings.GOOGLE_CREDENTIALS_JSON
     here = os.path.dirname(__file__)
     return os.path.join(here, "..", "..", "..", "google_credentials.json")
 
@@ -82,12 +84,13 @@ async def weekly_stats(
     date_range = f"{week_start.strftime('%-d %b')} – {week_end.strftime('%-d %b')}"
 
     try:
-        rows = await sheets_svc.get_weekly_stats(
-            _creds_file(), settings.GOOGLE_SPREADSHEET_ID, week
+        report = await sheets_svc.get_weekly_stats(
+            _creds(), settings.GOOGLE_SPREADSHEET_ID, week
         )
     except Exception as e:
         raise HTTPException(500, f"Sheets error: {e}")
 
+    weekly = report["weekly"]
     return {
         "week": week,
         "date_range": date_range,
@@ -96,9 +99,9 @@ async def weekly_stats(
                 "rank": i + 1,
                 "name": row["name"],
                 "visit_count": row["visit_count"],
-                "total_visits": row["total_visits"],
+                "total_visits": row.get("total_visits", 0),
             }
-            for i, row in enumerate(rows)
+            for i, row in enumerate(weekly)
         ],
     }
 

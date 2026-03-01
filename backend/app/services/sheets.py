@@ -96,10 +96,12 @@ def _sync_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> 
     data1 = ws1.get_all_values()
 
     visits_by_name: dict[str, int] = {}
+    total_visits_by_name: dict[str, int] = {}
     header_row_idx = next((i for i, row in enumerate(data1) if "Всего" in row), None)
     if header_row_idx is not None:
         h1 = data1[header_row_idx]
         week_col1 = next((i for i, h in enumerate(h1) if _str(h) == week_key), None)
+        vsego_col = next((i for i, h in enumerate(h1) if _str(h) == "Всего"), None)
         if week_col1 is not None:
             for row in data1[header_row_idx + 1:]:
                 name = _str(row[0]) if row else ""
@@ -108,6 +110,8 @@ def _sync_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> 
                 count = _to_int(row[week_col1] if week_col1 < len(row) else "")
                 if count > 0:
                     visits_by_name[name] = count
+                if vsego_col is not None and vsego_col < len(row):
+                    total_visits_by_name[name] = _to_int(row[vsego_col])
 
     # ── 2. Points from 'Общий зачет' (weekly + year totals) ─────────────────
     ws2 = _open_sheet(sh, "Общий зачет")
@@ -144,7 +148,12 @@ def _sync_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> 
         pts = weekly_pts_by_name.get(name, 0.0)
         if v <= 0 and pts <= 0:
             continue
-        weekly.append({"name": name, "visit_count": v, "points": pts})
+        weekly.append({
+            "name": name,
+            "visit_count": v,
+            "points": pts,
+            "total_visits": total_visits_by_name.get(name, 0),
+        })
 
     weekly.sort(key=lambda x: (-x["points"], -x["visit_count"]))
     year_top = sorted(year_rows, key=lambda x: -x["points"])[:3]
@@ -218,7 +227,7 @@ def _sync_bath_map(credentials: str, spreadsheet_id: str) -> list[dict]:
         if total > 0:
             baths.append({
                 "bath_name": bath_name,
-                "region": region,
+                "city": region,
                 "country": country,
                 "total_visits": total,
                 "visitors": sorted(visitors, key=lambda x: -x["visit_count"]),
