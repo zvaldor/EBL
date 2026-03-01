@@ -23,7 +23,8 @@
       "Bash(npx tsc --noEmit)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
-      "Bash(git add backend/app/api/routes/baths.py backend/app/api/routes/users.py backend/app/api/routes/visits.py backend/app/services/points.py backend/app/services/visit.py frontend/src/App.tsx frontend/src/components/Navigation.tsx frontend/src/index.css frontend/src/pages/Leaderboard.tsx frontend/src/pages/VisitDetail.tsx frontend/src/pages/Visits.tsx frontend/src/pages/Baths.tsx frontend/src/pages/UserProfile.tsx frontend/src/types/index.ts)"
+      "Bash(git add backend/app/api/routes/baths.py backend/app/api/routes/users.py backend/app/api/routes/visits.py backend/app/services/points.py backend/app/services/visit.py frontend/src/App.tsx frontend/src/components/Navigation.tsx frontend/src/index.css frontend/src/pages/Leaderboard.tsx frontend/src/pages/VisitDetail.tsx frontend/src/pages/Visits.tsx frontend/src/pages/Baths.tsx frontend/src/pages/UserProfile.tsx frontend/src/types/index.ts)",
+      "Bash(git add backend/app/services/sheets.py)"
     ],
     "additionalDirectories": [
       "/Users/alex/.claude/projects/-Users-alex-Documents-GitHub-EBL"
