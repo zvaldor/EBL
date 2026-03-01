@@ -15,10 +15,6 @@ export default function Navigation() {
         <span className="nav-icon">🗺️</span>
         Карта
       </NavLink>
-      <NavLink to="/baths" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-        <span className="nav-icon">🏠</span>
-        Бани
-      </NavLink>
     </nav>
   );
 }
