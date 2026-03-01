@@ -123,9 +123,13 @@ async def cmd_week(message: Message):
             for b in baths_q.scalars().all():
                 baths_map[b.id] = b
 
-        # Per bath: list of (visit, participants, points)
-        bath_visits: dict[int | None, list] = {}
+        # Collect per-user stats: points, visit count, bath names
+        # user_id -> {full_name, pts, visit_count, bath_names}
+        user_stats: dict[int, dict] = {}
         for visit in visits:
+            bath = baths_map.get(visit.bath_id) if visit.bath_id else None
+            bath_name = bath.name if bath else "—"
+
             parts_q = await db.execute(
                 select(User)
                 .join(VisitParticipant, VisitParticipant.user_id == User.id)
@@ -136,44 +140,36 @@ async def cmd_week(message: Message):
             pts_q = await db.execute(
                 select(PointLog).where(PointLog.visit_id == visit.id)
             )
-            point_logs = pts_q.scalars().all()
-            pts_by_user = {}
-            for lg in point_logs:
+            pts_by_user: dict[int, float] = {}
+            for lg in pts_q.scalars().all():
                 pts_by_user[lg.user_id] = pts_by_user.get(lg.user_id, 0.0) + lg.points
 
-            bath_key = visit.bath_id
-            if bath_key not in bath_visits:
-                bath_visits[bath_key] = []
-            bath_visits[bath_key].append((visit, participants, pts_by_user))
+            for u in participants:
+                if u.id not in user_stats:
+                    user_stats[u.id] = {
+                        "name": u.full_name,
+                        "pts": 0.0,
+                        "visit_count": 0,
+                        "baths": [],
+                    }
+                user_stats[u.id]["pts"] += pts_by_user.get(u.id, 0.0)
+                user_stats[u.id]["visit_count"] += 1
+                user_stats[u.id]["baths"].append(bath_name)
+
+    # Sort by points desc
+    ranked = sorted(user_stats.values(), key=lambda x: -x["pts"])
 
     lines = [f"📅 <b>Неделя {week_num}</b> · {date_range}\n"]
-    total_visits = len(visits)
-    total_users: set[int] = set()
-
-    for bath_id, visit_list in sorted(
-        bath_visits.items(),
-        key=lambda kv: -len(kv[1]),
-    ):
-        bath = baths_map.get(bath_id) if bath_id else None
-        bath_name = bath.name if bath else "Баня не указана"
-        city = f" ({bath.city})" if bath and bath.city else ""
-        lines.append(f"🏠 <b>{bath_name}</b>{city} — {len(visit_list)} визит(а)")
-
-        user_pts: dict[int, tuple[str, float]] = {}
-        for _, participants, pts_by_user in visit_list:
-            for u in participants:
-                total_users.add(u.id)
-                pts = pts_by_user.get(u.id, 0.0)
-                if u.id in user_pts:
-                    user_pts[u.id] = (user_pts[u.id][0], user_pts[u.id][1] + pts)
-                else:
-                    user_pts[u.id] = (u.full_name, pts)
-
-        user_line = " · ".join(
-            f"{name} ({pts:.0f} очк.)"
-            for _, (name, pts) in sorted(user_pts.items(), key=lambda x: -x[1][1])
+    medals = ["🥇", "🥈", "🥉"]
+    for i, stat in enumerate(ranked):
+        medal = medals[i] if i < 3 else f"{i + 1}."
+        unique_baths = list(dict.fromkeys(stat["baths"]))  # preserve order, dedupe
+        baths_str = ", ".join(unique_baths) if unique_baths else "—"
+        lines.append(
+            f"{medal} <b>{stat['name']}</b> — {stat['visit_count']} визит(а) — "
+            f"<i>{baths_str}</i> — <b>{stat['pts']:.0f} очк.</b>"
         )
-        lines.append(f"   {user_line}\n")
 
-    lines.append(f"📊 Итого: {total_visits} визит(а), {len(total_users)} участник(а)")
+    total_visits = len(visits)
+    lines.append(f"\n📊 Итого: {total_visits} визит(а), {len(user_stats)} участник(а)")
     await message.answer("\n".join(lines))
