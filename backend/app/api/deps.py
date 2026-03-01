@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+from typing import Optional
 from urllib.parse import parse_qsl, unquote
 from fastapi import HTTPException, Header, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,9 +40,23 @@ def validate_init_data(init_data: str) -> dict:
 
 
 async def get_current_user(
-    x_telegram_init_data: str = Header(...),
+    x_telegram_init_data: Optional[str] = Header(None),
+    x_web_password: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # Web browser password auth
+    if x_web_password is not None:
+        if not settings.WEB_PASSWORD or x_web_password != settings.WEB_PASSWORD:
+            raise HTTPException(status_code=401, detail="Invalid password")
+        q = await db.execute(select(User).where(User.is_admin == True).limit(1))
+        admin = q.scalar_one_or_none()
+        if not admin:
+            raise HTTPException(status_code=401, detail="No admin user configured")
+        return admin
+
+    if not x_telegram_init_data:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     try:
         parsed = validate_init_data(x_telegram_init_data)
     except HTTPException:

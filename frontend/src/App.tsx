@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import Navigation from "./components/Navigation";
+import PasswordLogin from "./components/PasswordLogin";
 import Leaderboard from "./pages/Leaderboard";
 import Visits from "./pages/Visits";
 import VisitDetail from "./pages/VisitDetail";
@@ -12,7 +13,17 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSettings from "./pages/admin/AdminSettings";
 
 export default function App() {
-  const { user, loading, error } = useAuth();
+  const { user, loading, error, needsPassword, loginWithPassword } = useAuth();
+
+  if (needsPassword || (!loading && !user && !error)) {
+    return (
+      <PasswordLogin
+        onLogin={loginWithPassword}
+        error={error}
+        loading={loading}
+      />
+    );
+  }
 
   if (loading) {
     return <div className="loading">⏳ Загрузка...</div>;

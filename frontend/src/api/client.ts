@@ -4,13 +4,10 @@ const getInitData = (): string => {
   if (typeof window !== "undefined" && window.Telegram?.WebApp?.initData) {
     return window.Telegram.WebApp.initData;
   }
-  // Dev fallback
   return localStorage.getItem("dev_init_data") || "";
 };
 
 const api = axios.create({
-  // VITE_API_URL is set in Netlify env vars to point to Railway backend.
-  // Falls back to /api for Railway-served deployments.
   baseURL: (import.meta.env.VITE_API_URL as string | undefined) ?? "/api",
 });
 
@@ -18,6 +15,11 @@ api.interceptors.request.use((config) => {
   const initData = getInitData();
   if (initData) {
     config.headers["X-Telegram-Init-Data"] = initData;
+  } else {
+    const webPassword = localStorage.getItem("web_password");
+    if (webPassword) {
+      config.headers["X-Web-Password"] = webPassword;
+    }
   }
   return config;
 });

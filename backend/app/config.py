@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     ULTRAUNIQUE_START_DATE: str = "2023-01-01"
     EDIT_WINDOW_HOURS: int = 2
 
+    # Web browser password auth (for accessing via regular browser, not Telegram)
+    WEB_PASSWORD: str = "banya-2026-EBL"
+
     # Google Sheets integration
     GOOGLE_SPREADSHEET_ID: str = "1lo91bPkR0T4j1Pk3Edp9YtQjrwHt5t8zWWSVq9nNLkY"
     GOOGLE_CREDENTIALS_FILE: str = "google_credentials.json"
