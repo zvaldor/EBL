@@ -95,44 +95,73 @@ async def cmd_top(message: Message):
     await message.answer("\n".join(lines))
 
 
+def _bath_word(n: int) -> str:
+    if n % 10 == 1 and n % 100 != 11:
+        return "баня"
+    if 2 <= n % 10 <= 4 and not (12 <= n % 100 <= 14):
+        return "бани"
+    return "бань"
+
+
+def _pts_str(pts: float) -> str:
+    return f"{pts:.0f}" if pts == int(pts) else f"{pts:.2f}".rstrip("0")
+
+
 @router.message(Command("week"))
 async def cmd_week(message: Message):
     now = datetime.now(timezone.utc)
     week_start = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
-    week_end = week_start + timedelta(days=7)
     week_num = now.isocalendar()[1]
     date_range = (
         f"{week_start.strftime('%-d %b')} – "
-        f"{(week_end - timedelta(days=1)).strftime('%-d %b')}"
+        f"{(week_start + timedelta(days=6)).strftime('%-d %b')}"
     )
 
     creds = _creds()
     try:
-        rows = await sheets_svc.get_weekly_stats(
+        report = await sheets_svc.get_weekly_stats(
             creds, settings.GOOGLE_SPREADSHEET_ID, week_num
         )
     except Exception as e:
         await message.answer(f"⚠️ Не удалось прочитать таблицу: {e}")
         return
 
-    if not rows:
+    weekly = report["weekly"]
+    year_top = report["year_top"]
+
+    if not weekly:
         await message.answer(
             f"📅 <b>Неделя {week_num}</b> · {date_range}\n\n"
-            "Пока нет визитов на этой неделе 🛁"
+            "Пока нет данных за эту неделю 🛁"
         )
         return
 
     medals = ["🥇", "🥈", "🥉"]
     lines = [f"📅 <b>Неделя {week_num}</b> · {date_range}\n"]
+
     total_visits = 0
-    for i, row in enumerate(rows):
+    total_pts = 0.0
+    for i, row in enumerate(weekly):
         medal = medals[i] if i < 3 else f"{i + 1}."
         v = row["visit_count"]
+        pts = row["points"]
         total_visits += v
-        bath_word = "баня" if v == 1 else ("бани" if 2 <= v <= 4 else "бань")
-        lines.append(f"{medal} <b>{row['name']}</b> — {v} {bath_word}")
+        total_pts += pts
+        baths = f"{v} {_bath_word(v)}" if v else ""
+        pts_part = f"{_pts_str(pts)} очк." if pts else ""
+        detail = " · ".join(filter(None, [baths, pts_part]))
+        lines.append(f"{medal} <b>{row['name']}</b> — {detail}")
 
-    lines.append(f"\n📊 Итого: {total_visits} визитов, {len(rows)} участников")
-    await message.answer("\n".join(lines))
+    lines.append(f"\n📊 Итого за неделю: {total_visits} визитов, {_pts_str(total_pts)} очков")
+
+    if year_top:
+        lines.append(f"\n🏆 <b>Топ-3 за {now.year} год:</b>")
+        for i, row in enumerate(year_top):
+            v = row["visit_count"]
+            lines.append(
+                f"{medals[i]} {row['name']} — {_pts_str(row['points'])} очк. · {v} {_bath_word(v)}"
+            )
+
+    await message.answer("\n".join(lines), parse_mode="HTML")

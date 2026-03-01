@@ -79,39 +79,77 @@ def _open_sheet(sh, name: str):
 # Sync helpers (run in thread pool via asyncio.to_thread)
 # ---------------------------------------------------------------------------
 
-def _sync_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> list[dict]:
-    """Return per-person visit counts for *week_num* from 'недельный зачет'."""
-    sh = _make_client(credentials).open_by_key(spreadsheet_id)
-    ws = _open_sheet(sh, "недельный зачет")
-    data = ws.get_all_values()
+def _sync_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> dict:
+    """Return weekly report: per-person visits+points for *week_num*, plus year top-3.
 
-    # Find the header row (contains "Всего")
-    header_row_idx = next(
-        (i for i, row in enumerate(data) if "Всего" in row), None
-    )
-    if header_row_idx is None:
-        return []
-
-    header = data[header_row_idx]
+    Returns:
+        {
+          "weekly": [{name, visit_count, points}, ...],  # sorted by points desc
+          "year_top": [{name, points, visit_count}, ...],  # top-3 for the year
+        }
+    """
     week_key = f"W{week_num}"
-    week_col = next((i for i, h in enumerate(header) if _str(h) == week_key), None)
-    total_col = next((i for i, h in enumerate(header) if _str(h) == "Всего"), None)
+    sh = _make_client(credentials).open_by_key(spreadsheet_id)
 
-    if week_col is None:
-        return []
+    # ── 1. Visit counts from 'недельный зачет' ──────────────────────────────
+    ws1 = _open_sheet(sh, "недельный зачет")
+    data1 = ws1.get_all_values()
 
-    results = []
-    for row in data[header_row_idx + 1:]:
-        name = _str(row[0]) if row else ""
-        if not name:
+    visits_by_name: dict[str, int] = {}
+    header_row_idx = next((i for i, row in enumerate(data1) if "Всего" in row), None)
+    if header_row_idx is not None:
+        h1 = data1[header_row_idx]
+        week_col1 = next((i for i, h in enumerate(h1) if _str(h) == week_key), None)
+        if week_col1 is not None:
+            for row in data1[header_row_idx + 1:]:
+                name = _str(row[0]) if row else ""
+                if not name:
+                    continue
+                count = _to_int(row[week_col1] if week_col1 < len(row) else "")
+                if count > 0:
+                    visits_by_name[name] = count
+
+    # ── 2. Points from 'Общий зачет' (weekly + year totals) ─────────────────
+    ws2 = _open_sheet(sh, "Общий зачет")
+    data2 = ws2.get_all_values()
+
+    weekly_pts_by_name: dict[str, float] = {}
+    year_rows: list[dict] = []
+
+    if data2:
+        h2 = data2[0]
+        week_col2 = next((i for i, h in enumerate(h2) if _str(h) == week_key), None)
+        itogo_col = next((i for i, h in enumerate(h2) if _str(h) == "Итого"), None)
+        kvo_col = next((i for i, h in enumerate(h2) if _str(h) == "К-во"), None)
+
+        for row in data2[1:]:
+            name = _str(row[0]) if row else ""
+            if not name:
+                continue
+            if week_col2 is not None and week_col2 < len(row):
+                pts = _to_float(row[week_col2])
+                if pts > 0:
+                    weekly_pts_by_name[name] = pts
+            if itogo_col is not None and itogo_col < len(row):
+                total_pts = _to_float(row[itogo_col])
+                total_v = _to_int(row[kvo_col] if kvo_col is not None and kvo_col < len(row) else "")
+                if total_pts > 0:
+                    year_rows.append({"name": name, "points": total_pts, "visit_count": total_v})
+
+    # ── 3. Merge weekly data ────────────────────────────────────────────────
+    all_names = set(visits_by_name) | set(weekly_pts_by_name)
+    weekly = []
+    for name in all_names:
+        v = visits_by_name.get(name, 0)
+        pts = weekly_pts_by_name.get(name, 0.0)
+        if v <= 0 and pts <= 0:
             continue
-        count = _to_int(row[week_col] if week_col < len(row) else "")
-        if count <= 0:
-            continue
-        total = _to_int(row[total_col] if total_col is not None and total_col < len(row) else "")
-        results.append({"name": name, "visit_count": count, "total_visits": total})
+        weekly.append({"name": name, "visit_count": v, "points": pts})
 
-    return sorted(results, key=lambda x: -x["visit_count"])
+    weekly.sort(key=lambda x: (-x["points"], -x["visit_count"]))
+    year_top = sorted(year_rows, key=lambda x: -x["points"])[:3]
+
+    return {"weekly": weekly, "year_top": year_top}
 
 
 def _sync_overall_stats(credentials: str, spreadsheet_id: str) -> list[dict]:
@@ -193,7 +231,7 @@ def _sync_bath_map(credentials: str, spreadsheet_id: str) -> list[dict]:
 # Async public API
 # ---------------------------------------------------------------------------
 
-async def get_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> list[dict]:
+async def get_weekly_stats(credentials: str, spreadsheet_id: str, week_num: int) -> dict:
     return await asyncio.to_thread(_sync_weekly_stats, credentials, spreadsheet_id, week_num)
 
 
