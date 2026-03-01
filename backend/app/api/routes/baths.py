@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from datetime import datetime, timedelta
 
 from app.db.session import get_db
-from app.db.models import User, Bath, Country, Region
+from app.db.models import User, Bath, Country, Region, Visit, VisitParticipant
 from app.api.deps import get_current_user, get_admin_user
 from app.services.bath import create_bath, merge_baths
 
@@ -69,6 +70,76 @@ async def list_regions(
         query = query.where(Region.country_id == country_id)
     result = await db.execute(query)
     return [{"id": r.id, "name": r.name, "country_id": r.country_id} for r in result.scalars().all()]
+
+
+@router.get("/map")
+async def bath_map(
+    period: str = Query("all", regex="^(week|year|all)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return baths with per-user visit counts for the TMA bath map."""
+    now = datetime.utcnow()
+    if period == "week":
+        start = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+    elif period == "year":
+        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        start = None
+
+    # Query: bath, user, visit_count grouped
+    q = (
+        select(
+            Bath.id.label("bath_id"),
+            Bath.name.label("bath_name"),
+            Bath.city.label("city"),
+            Bath.lat.label("lat"),
+            Bath.lng.label("lng"),
+            User.id.label("user_id"),
+            User.full_name.label("full_name"),
+            User.username.label("username"),
+            func.count(Visit.id).label("visit_count"),
+        )
+        .join(Visit, Visit.bath_id == Bath.id)
+        .join(VisitParticipant, VisitParticipant.visit_id == Visit.id)
+        .join(User, User.id == VisitParticipant.user_id)
+        .where(
+            Visit.status.in_(["confirmed", "draft", "pending"]),
+            Bath.is_archived == False,
+        )
+        .group_by(Bath.id, Bath.name, Bath.city, Bath.lat, Bath.lng, User.id, User.full_name, User.username)
+        .order_by(Bath.name, func.count(Visit.id).desc())
+    )
+    if start:
+        q = q.where(Visit.visited_at >= start)
+
+    result = await db.execute(q)
+    rows = result.all()
+
+    # Group by bath
+    baths: dict[int, dict] = {}
+    for row in rows:
+        if row.bath_id not in baths:
+            baths[row.bath_id] = {
+                "bath_id": row.bath_id,
+                "bath_name": row.bath_name,
+                "city": row.city,
+                "lat": row.lat,
+                "lng": row.lng,
+                "total_visits": 0,
+                "visitors": [],
+            }
+        baths[row.bath_id]["total_visits"] += row.visit_count
+        baths[row.bath_id]["visitors"].append({
+            "user_id": row.user_id,
+            "full_name": row.full_name,
+            "username": row.username,
+            "visit_count": row.visit_count,
+        })
+
+    return sorted(baths.values(), key=lambda b: -b["total_visits"])
 
 
 @router.get("/{bath_id}")

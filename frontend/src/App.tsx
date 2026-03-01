@@ -5,6 +5,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Visits from "./pages/Visits";
 import VisitDetail from "./pages/VisitDetail";
 import Baths from "./pages/Baths";
+import BathMap from "./pages/BathMap";
 import UserProfile from "./pages/UserProfile";
 import AdminVisits from "./pages/admin/AdminVisits";
 import AdminBaths from "./pages/admin/AdminBaths";
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/users/:id" element={<UserProfile />} />
         <Route path="/visits" element={<Visits user={user!} />} />
         <Route path="/visits/:id" element={<VisitDetail user={user!} />} />
+        <Route path="/bath-map" element={<BathMap />} />
         <Route path="/baths" element={<Baths user={user!} />} />
 
         {user?.is_admin && (
