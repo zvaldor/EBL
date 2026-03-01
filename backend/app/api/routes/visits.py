@@ -1,16 +1,25 @@
+import os
+
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from app.db.session import get_db
 from app.db.models import User, Visit, VisitParticipant, Bath, PointLog
 from app.api.deps import get_current_user, get_admin_user
 from app.services.visit import set_visit_status, update_participants, set_flag_long, update_visit_bath
+from app.services import sheets as sheets_svc
+from app.config import settings
 
 router = APIRouter(prefix="/visits", tags=["visits"])
+
+
+def _creds_file() -> str:
+    here = os.path.dirname(__file__)
+    return os.path.join(here, "..", "..", "..", "google_credentials.json")
 
 
 async def visit_to_dict(visit: Visit, db: AsyncSession) -> dict:
@@ -55,6 +64,42 @@ async def visit_to_dict(visit: Visit, db: AsyncSession) -> dict:
             for lg in logs
         ],
         "total_points": sum(lg.points for lg in logs),
+    }
+
+
+@router.get("/weekly")
+async def weekly_stats(
+    week: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+):
+    """Per-person visit counts for a given week from Google Sheets 'Недельный зачет'."""
+    now = datetime.now(timezone.utc)
+    if week is None:
+        week = now.isocalendar()[1]
+
+    week_start = datetime.fromisocalendar(now.year, week, 1).replace(tzinfo=timezone.utc)
+    week_end = week_start + timedelta(days=6)
+    date_range = f"{week_start.strftime('%-d %b')} – {week_end.strftime('%-d %b')}"
+
+    try:
+        rows = await sheets_svc.get_weekly_stats(
+            _creds_file(), settings.GOOGLE_SPREADSHEET_ID, week
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Sheets error: {e}")
+
+    return {
+        "week": week,
+        "date_range": date_range,
+        "rows": [
+            {
+                "rank": i + 1,
+                "name": row["name"],
+                "visit_count": row["visit_count"],
+                "total_visits": row["total_visits"],
+            }
+            for i, row in enumerate(rows)
+        ],
     }
 
 
