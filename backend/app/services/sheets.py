@@ -42,7 +42,11 @@ def _sync_weekly_stats(credentials_file: str, spreadsheet_id: str, week_num: int
     """Return per-person visit counts for *week_num* from 'Недельный зачет'."""
     client = _make_client(credentials_file)
     sh = client.open_by_key(spreadsheet_id)
-    ws = sh.worksheet("Недельный зачет")
+    try:
+        ws = sh.worksheet("Недельный зачет")
+    except gspread.WorksheetNotFound:
+        titles = [w.title for w in sh.worksheets()]
+        raise ValueError(f"Лист 'Недельный зачет' не найден. Доступные листы: {titles}")
     data = ws.get_all_values()
 
     # Find the header row (contains "Всего")
@@ -86,7 +90,11 @@ def _sync_overall_stats(credentials_file: str, spreadsheet_id: str) -> list[dict
     """Return overall standings from 'Общий зачет' (total points + visit count)."""
     client = _make_client(credentials_file)
     sh = client.open_by_key(spreadsheet_id)
-    ws = sh.worksheet("Общий зачет")
+    try:
+        ws = sh.worksheet("Общий зачет")
+    except gspread.WorksheetNotFound:
+        titles = [w.title for w in sh.worksheets()]
+        raise ValueError(f"Лист 'Общий зачет' не найден. Доступные листы: {titles}")
     data = ws.get_all_values()
 
     if not data:
@@ -121,7 +129,11 @@ def _sync_bath_map(credentials_file: str, spreadsheet_id: str) -> list[dict]:
     """Return per-bath per-user visit counts from 'Все бани'."""
     client = _make_client(credentials_file)
     sh = client.open_by_key(spreadsheet_id)
-    ws = sh.worksheet("Все бани")
+    try:
+        ws = sh.worksheet("Все бани")
+    except gspread.WorksheetNotFound:
+        titles = [w.title for w in sh.worksheets()]
+        raise ValueError(f"Лист 'Все бани' не найден. Доступные листы: {titles}")
     data = ws.get_all_values()
 
     if not data:
