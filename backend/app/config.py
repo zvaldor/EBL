@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     ULTRAUNIQUE_START_DATE: str = "2023-01-01"
     EDIT_WINDOW_HOURS: int = 2
 
+    # Google Sheets integration
+    GOOGLE_SPREADSHEET_ID: str = "1lo91bPkR0T4j1Pk3Edp9YtQjrwHt5t8zWWSVq9nNLkY"
+    GOOGLE_CREDENTIALS_FILE: str = "google_credentials.json"
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def fix_db_url(cls, v: str) -> str:

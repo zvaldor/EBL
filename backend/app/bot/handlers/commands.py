@@ -4,12 +4,21 @@ from aiogram.types import Message
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
+import os
 
 from app.db.session import AsyncSessionLocal
 from app.db.models import User, PointLog, Visit, VisitParticipant, Bath
 from app.services.visit import get_or_create_user
+from app.services import sheets as sheets_svc
+from app.config import settings
 
 router = Router()
+
+
+def _creds_file() -> str:
+    """Resolve credentials file path relative to backend root."""
+    here = os.path.dirname(__file__)  # backend/app/bot/handlers/
+    return os.path.join(here, "..", "..", "..", "google_credentials.json")
 
 
 @router.message(Command("start"))
@@ -87,89 +96,41 @@ async def cmd_top(message: Message):
 @router.message(Command("week"))
 async def cmd_week(message: Message):
     now = datetime.now(timezone.utc)
-    # ISO week: Monday = start, Sunday = end
     week_start = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
     week_end = week_start + timedelta(days=7)
     week_num = now.isocalendar()[1]
-    date_range = f"{week_start.strftime('%-d %b')} – {(week_end - timedelta(days=1)).strftime('%-d %b')}"
+    date_range = (
+        f"{week_start.strftime('%-d %b')} – "
+        f"{(week_end - timedelta(days=1)).strftime('%-d %b')}"
+    )
 
-    async with AsyncSessionLocal() as db:
-        # Load visits for this week with their baths
-        visits_q = await db.execute(
-            select(Visit)
-            .where(
-                Visit.visited_at >= week_start,
-                Visit.visited_at < week_end,
-                Visit.status.in_(["confirmed", "draft", "pending"]),
-            )
-            .order_by(Visit.visited_at)
+    creds = _creds_file()
+    try:
+        rows = await sheets_svc.get_weekly_stats(
+            creds, settings.GOOGLE_SPREADSHEET_ID, week_num
         )
-        visits = visits_q.scalars().all()
+    except Exception as e:
+        await message.answer(f"⚠️ Не удалось прочитать таблицу: {e}")
+        return
 
-        if not visits:
-            await message.answer(
-                f"📅 <b>Неделя {week_num}</b> · {date_range}\n\n"
-                "Пока нет визитов на этой неделе 🛁"
-            )
-            return
+    if not rows:
+        await message.answer(
+            f"📅 <b>Неделя {week_num}</b> · {date_range}\n\n"
+            "Пока нет визитов на этой неделе 🛁"
+        )
+        return
 
-        # Collect bath ids and build bath map
-        bath_ids = {v.bath_id for v in visits if v.bath_id}
-        baths_map: dict[int, Bath] = {}
-        if bath_ids:
-            baths_q = await db.execute(select(Bath).where(Bath.id.in_(bath_ids)))
-            for b in baths_q.scalars().all():
-                baths_map[b.id] = b
-
-        # Collect per-user stats: points, visit count, bath names
-        # user_id -> {full_name, pts, visit_count, bath_names}
-        user_stats: dict[int, dict] = {}
-        for visit in visits:
-            bath = baths_map.get(visit.bath_id) if visit.bath_id else None
-            bath_name = bath.name if bath else "—"
-
-            parts_q = await db.execute(
-                select(User)
-                .join(VisitParticipant, VisitParticipant.user_id == User.id)
-                .where(VisitParticipant.visit_id == visit.id)
-            )
-            participants = parts_q.scalars().all()
-
-            pts_q = await db.execute(
-                select(PointLog).where(PointLog.visit_id == visit.id)
-            )
-            pts_by_user: dict[int, float] = {}
-            for lg in pts_q.scalars().all():
-                pts_by_user[lg.user_id] = pts_by_user.get(lg.user_id, 0.0) + lg.points
-
-            for u in participants:
-                if u.id not in user_stats:
-                    user_stats[u.id] = {
-                        "name": u.full_name,
-                        "pts": 0.0,
-                        "visit_count": 0,
-                        "baths": [],
-                    }
-                user_stats[u.id]["pts"] += pts_by_user.get(u.id, 0.0)
-                user_stats[u.id]["visit_count"] += 1
-                user_stats[u.id]["baths"].append(bath_name)
-
-    # Sort by points desc
-    ranked = sorted(user_stats.values(), key=lambda x: -x["pts"])
-
-    lines = [f"📅 <b>Неделя {week_num}</b> · {date_range}\n"]
     medals = ["🥇", "🥈", "🥉"]
-    for i, stat in enumerate(ranked):
+    lines = [f"📅 <b>Неделя {week_num}</b> · {date_range}\n"]
+    total_visits = 0
+    for i, row in enumerate(rows):
         medal = medals[i] if i < 3 else f"{i + 1}."
-        unique_baths = list(dict.fromkeys(stat["baths"]))  # preserve order, dedupe
-        baths_str = ", ".join(unique_baths) if unique_baths else "—"
-        lines.append(
-            f"{medal} <b>{stat['name']}</b> — {stat['visit_count']} визит(а) — "
-            f"<i>{baths_str}</i> — <b>{stat['pts']:.0f} очк.</b>"
-        )
+        v = row["visit_count"]
+        total_visits += v
+        bath_word = "баня" if v == 1 else ("бани" if 2 <= v <= 4 else "бань")
+        lines.append(f"{medal} <b>{row['name']}</b> — {v} {bath_word}")
 
-    total_visits = len(visits)
-    lines.append(f"\n📊 Итого: {total_visits} визит(а), {len(user_stats)} участник(а)")
+    lines.append(f"\n📊 Итого: {total_visits} визитов, {len(rows)} участников")
     await message.answer("\n".join(lines))

@@ -17,6 +17,10 @@ frontend/.vite/
 .env
 *.env.local
 
+# Google credentials
+backend/google_credentials.json
+google_credentials.json
+
 # IDE
 .idea/
 .vscode/
