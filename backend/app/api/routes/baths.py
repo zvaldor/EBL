@@ -16,8 +16,11 @@ from app.config import settings
 router = APIRouter(prefix="/baths", tags=["baths"])
 
 
-def _creds_file() -> str:
-    here = os.path.dirname(__file__)  # backend/app/api/routes/
+def _creds() -> str:
+    """Return JSON string from env var, or fall back to local file path."""
+    if settings.GOOGLE_CREDENTIALS_JSON:
+        return settings.GOOGLE_CREDENTIALS_JSON
+    here = os.path.dirname(__file__)
     return os.path.join(here, "..", "..", "..", "google_credentials.json")
 
 
@@ -87,7 +90,7 @@ async def bath_map(
     """Return per-bath per-user visit counts from Google Sheets 'Все бани'."""
     try:
         data = await sheets_svc.get_bath_map(
-            _creds_file(), settings.GOOGLE_SPREADSHEET_ID
+            _creds(), settings.GOOGLE_SPREADSHEET_ID
         )
     except Exception as e:
         raise HTTPException(500, f"Sheets error: {e}")

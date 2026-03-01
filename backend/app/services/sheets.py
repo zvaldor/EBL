@@ -16,6 +16,7 @@ Sheet layout expected:
 """
 
 import asyncio
+import json
 import os
 import gspread
 from google.oauth2.service_account import Credentials
@@ -23,8 +24,13 @@ from google.oauth2.service_account import Credentials
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 
-def _make_client(credentials_file: str) -> gspread.Client:
-    creds = Credentials.from_service_account_file(credentials_file, scopes=SCOPES)
+def _make_client(credentials: str) -> gspread.Client:
+    """Accept either a JSON string (from env var) or a file path."""
+    if credentials.strip().startswith("{"):
+        info = json.loads(credentials)
+        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+    else:
+        creds = Credentials.from_service_account_file(credentials, scopes=SCOPES)
     return gspread.authorize(creds)
 
 

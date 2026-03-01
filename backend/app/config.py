@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Google Sheets integration
     GOOGLE_SPREADSHEET_ID: str = "1lo91bPkR0T4j1Pk3Edp9YtQjrwHt5t8zWWSVq9nNLkY"
     GOOGLE_CREDENTIALS_FILE: str = "google_credentials.json"
+    GOOGLE_CREDENTIALS_JSON: str = ""  # JSON content as string (Railway env var)
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

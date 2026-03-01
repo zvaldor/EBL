@@ -15,9 +15,11 @@ from app.config import settings
 router = Router()
 
 
-def _creds_file() -> str:
-    """Resolve credentials file path relative to backend root."""
-    here = os.path.dirname(__file__)  # backend/app/bot/handlers/
+def _creds() -> str:
+    """Return JSON string from env var, or fall back to local file path."""
+    if settings.GOOGLE_CREDENTIALS_JSON:
+        return settings.GOOGLE_CREDENTIALS_JSON
+    here = os.path.dirname(__file__)
     return os.path.join(here, "..", "..", "..", "google_credentials.json")
 
 
@@ -106,7 +108,7 @@ async def cmd_week(message: Message):
         f"{(week_end - timedelta(days=1)).strftime('%-d %b')}"
     )
 
-    creds = _creds_file()
+    creds = _creds()
     try:
         rows = await sheets_svc.get_weekly_stats(
             creds, settings.GOOGLE_SPREADSHEET_ID, week_num
